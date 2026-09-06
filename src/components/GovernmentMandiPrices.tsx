@@ -14,6 +14,7 @@ import {
   Info,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { MANDI_FALLBACK_RECORDS } from '../data/mandifallback';
 
 export interface MandiPriceRecord {
   state: string;
@@ -59,30 +60,82 @@ export const GovernmentMandiPrices: React.FC = () => {
       'Daily reported APMC wholesale market prices sourced via Government of India open data platform (data.gov.in / AGMARKNET). These are daily reported benchmark prices, not guaranteed live auction bids.',
   });
 
-  const fetchMandiPrices = async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (selectedCommodity !== 'All') params.append('commodity', selectedCommodity);
-      if (selectedState !== 'All') params.append('state', selectedState);
+ const fetchMandiPrices = async () => {
+  setIsLoading(true);
 
-      const res = await fetch(`/api/mandi-prices?${params.toString()}`);
-      if (res.ok) {
-        const data: MandiApiResponse = await res.json();
-        setRecords(data.records || []);
-        setApiMeta({
-          source: data.source,
-          isLive: data.isLiveApi,
-          isFallback: data.isFallback,
-          disclaimer: data.disclaimer,
-        });
-      }
-    } catch (err) {
-      console.warn('Failed to load Mandi prices:', err);
-    } finally {
-      setIsLoading(false);
+  const useFallback = () => {
+    let fallback = [...MANDI_FALLBACK_RECORDS];
+
+    if (selectedCommodity !== 'All') {
+      const q = selectedCommodity.toLowerCase();
+      fallback = fallback.filter((r) =>
+        r.commodity.toLowerCase().includes(q)
+      );
     }
+
+    if (selectedState !== 'All') {
+      const q = selectedState.toLowerCase();
+      fallback = fallback.filter((r) =>
+        r.state.toLowerCase().includes(q)
+      );
+    }
+
+    setRecords(fallback);
+
+    setApiMeta({
+      source: 'KisanSetu Demo Fallback Dataset',
+      isLive: false,
+      isFallback: true,
+      disclaimer:
+        'Government AGMARKNET/data.gov.in data is currently unavailable. KisanSetu is displaying demo mandi records so the marketplace remains usable. These values are for demonstration and should not be treated as live government prices.',
+    });
   };
+
+  try {
+    const params = new URLSearchParams();
+
+    if (selectedCommodity !== 'All') {
+      params.append('commodity', selectedCommodity);
+    }
+
+    if (selectedState !== 'All') {
+      params.append('state', selectedState);
+    }
+
+    const res = await fetch(`/api/mandi-prices?${params.toString()}`);
+
+    if (!res.ok) {
+      throw new Error(`Mandi API returned ${res.status}`);
+    }
+
+    const data: MandiApiResponse = await res.json();
+
+    if (Array.isArray(data.records) && data.records.length > 0) {
+      setRecords(data.records);
+
+      setApiMeta({
+        source: data.source,
+        isLive: data.isLiveApi,
+        isFallback: data.isFallback,
+        disclaimer: data.disclaimer,
+      });
+
+      return;
+    }
+
+    // API responded successfully but returned no records
+    useFallback();
+  } catch (err) {
+    console.warn(
+      'Government mandi API unavailable. Using KisanSetu fallback data.',
+      err
+    );
+
+    useFallback();
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchMandiPrices();
@@ -125,13 +178,12 @@ export const GovernmentMandiPrices: React.FC = () => {
               ) : (
                 <span className="bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                   <Info className="w-3.5 h-3.5 text-amber-600" />
-                  Official AGMARKNET Benchmark (Fallback Mode)
+                  Demo Mandi Data (Fallback Mode)
                 </span>
               )}
             </div>
             <p className="text-xs sm:text-sm text-slate-600 max-w-3xl leading-relaxed">
-              Official wholesale market prices published through the Ministry of Agriculture & Farmers Welfare via{' '}
-              <strong>AGMARKNET / data.gov.in</strong> open data portal. Use these official daily reported rates to compare buyer offers and evaluate fair farm-gate pricing.
+             Mandi price reference data from <strong>AGMARKNET / data.gov.in</strong> is used when the government feed is available. If the government API is unavailable, KisanSetu shows clearly labelled demo data so the marketplace remains functional.
             </p>
           </div>
 
