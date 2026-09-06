@@ -1,0 +1,6 @@
+{
+  "name": "KisanSetu - AgriMarket Linkage & Price Discovery",
+  "description": "Smart India Hackathon (SIH 26132) MVP: Direct farmer-to-buyer matching, transport cost net return calculator, interactive mandi map, digital offers, crop inventory management, and transport & storage directory.",
+  "requestFramePermissions": ["geolocation", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
